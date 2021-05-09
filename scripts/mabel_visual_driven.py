@@ -47,13 +47,117 @@ def checkDetection(data):
         #rotate(22)
         return
     tags = extractTagValues(detections)
+
     # print("distance_x = ", tags[0]['distance_x'])
     # print("yaw = ", tags[0]['yaw'], "\n")
     # zum testen: nur den ersten tag benutzen
+    # if not secondStep:
+    #     ausrichten(tags)
+    # else:
+    #     anfahren(tags)
+    
+    distX = int(tags[0]['distance_x'] * 100)
+    distZ = int(tags[0]['distance_z'] * 100)
+    yaw = int(tags[0]['yaw'])
+
+    # sleep(1)
+
+    print("yaw = ", yaw, "\tdistX = ", distX, "\tdistZ = ", distZ)
+
     if not secondStep:
-        ausrichten(tags)
-    else:
-        anfahren(tags)
+        if (distX > 10 and yaw < 0) or (distX < -10 and yaw > 0):
+            print("Entered Algo 1 - Schlechte Lage zum Tag")
+            # tag is not placed optimal
+            # rotate 90 degrees
+            if distX < 0:
+                print("erste -90 grad rotation")
+                rotate(-90)
+            elif distX > 0:
+                print("erste 90 grad rotation")
+                rotate(90)
+
+            # drive horizontal distance to tag
+            print("fahre erste distanz = ", distX, "cm")
+            drive(distX)
+
+            # rotate back in first orientation
+            print("zweite 90 grad rotation")
+            if distX < 0:
+                rotate(90)
+            elif distX > 0:
+                rotate(-90)
+        
+        elif distX > -10 and distX < 10:
+            if yaw < 15 and yaw > -15:
+                print("Entered Algo 2a - Tag genau vor dem Bot, ohne Rotation")
+                print("drive only distance = ", distZ, "cm")
+                drive(distZ)
+            else:
+                print("Entered Algo 2b - Tag genau vor dem Bot, MIT Rotation")
+                # rotate 90 degrees
+                if yaw < 0:
+                    print("erste 90 grad rotation")
+                    rotate(90)
+                elif yaw > 0:
+                    print("erste -90 grad rotation")
+                    rotate(-90)
+                
+                # drive first distance
+                print("2b input: ", "distZ = ", distZ, "\tyaw = ", abs(yaw))
+                sinValue = math.sin(np.radians(abs(yaw)))
+                cosValue = math.cos(np.radians(abs(yaw)))
+                firstDistance = distZ * (sinValue / cosValue)
+                firstDistance = int(abs(firstDistance))
+                print("fahre erste distanz = ", firstDistance, "cm")
+                drive(firstDistance)
+
+                # rotate back to be in front of tag
+                if yaw < 0:
+                    print("zweite rotation um ", -90 - yaw, " grad")
+                    rotate(-90 - yaw)
+                elif yaw > 0:
+                    print("zweite rotation um ", 90 + yaw, " grad")
+                    rotate(90 + yaw)
+
+                # data from next measurement
+                # drive(distZ)
+                secondStep = True
+
+        elif (distX < 0 and yaw < 0) or (distX > 0 and yaw > 0):
+            print("Entered Algo 3")
+            # tag is placed right in front of robot
+            # rotate 90 degrees
+            if distX > 0:
+                print("erste -90 grad rotation")
+                rotate(-90)
+            elif distX < 0:
+                print("erste 90 grad rotation")
+                rotate(90)
+            
+            # drive first distance
+            sinValue = math.sin(np.radians(abs(yaw)))
+            cosValue = math.cos(np.radians(abs(yaw)))
+            firstDistance = abs(distX) - distZ * (sinValue / cosValue)
+            firstDistance = int(abs(firstDistance))
+            print("fahre erste distanz = ", firstDistance, "cm")
+            drive(firstDistance)
+
+            # rotate back to be in front of tag
+            if distX > 0:
+                print("zweite rotation um ", 90 - abs(yaw), " grad")
+                rotate(90 - abs(yaw))
+            elif distX < 0:
+                print("zweite rotation um ", -90 + abs(yaw), " grad")
+                rotate(-90 + abs(yaw))
+            secondStep = True
+        else:
+        # data from next measurement
+            print("driving second distance = ", distZ - 20, "cm")
+            drive(distZ - 20)
+            print("ALL DONE")
+            print("sleeping now")
+            sleep(120)
+    # input("press ENTER for next measurement")
 
 def ausrichten(tags):
     distX = tags[0]['distance_x']
@@ -89,6 +193,7 @@ def anfahren(tags):
     print("last drive done, was ", lastDistance, "cm")
 
 def rotate(angle):
+    # return
     sendByte = 0b00000000
 
     if angle < 0:
@@ -112,6 +217,7 @@ def rotate(angle):
     return
 
 def drive(distance):
+    # return
     sendByte = 0b00000000
 
     if distance < 0:
@@ -164,16 +270,16 @@ def extractTagValues(detections):
     return tags
 
 def listener():
-    print("Waiting 30 seconds before start")
-    sleep(10)
-    print("Arduino initialized")
-    sleep(10)
-    print("10 seconds left")
-    sleep(10)
+    # print("Waiting 30 seconds before start")
+    # sleep(10)
+    # print("Arduino initialized")
+    # sleep(10)
+    # print("10 seconds left")
+    # sleep(10)
     rospy.init_node('mabel_visual_driven', anonymous=True)
     rospy.Subscriber("/tag_detections", AprilTagDetectionArray, checkDetection, queue_size=1)
     rospy.spin()
 
 if __name__ == '__main__':
     secondStep = False
-    listener()
+    listener()  
