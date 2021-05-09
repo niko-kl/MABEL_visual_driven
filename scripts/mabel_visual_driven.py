@@ -77,8 +77,8 @@ def checkDetection(data):
                 rotate(90)
 
             # drive horizontal distance to tag
-            print("fahre erste distanz = ", distX, "cm")
-            drive(distX)
+            print("fahre erste distanz = ", distX - 20, "cm")
+            drive(distX - 20)
 
             # rotate back in first orientation
             print("zweite 90 grad rotation")
