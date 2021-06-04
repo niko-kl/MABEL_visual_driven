@@ -90,8 +90,8 @@ def checkDetection(data):
                 rotate(90)
 
             # drive horizontal distance to tag
-            print("fahre erste distanz = ", distX - 20, "cm")
-            drive(distX - 20)
+            print("fahre erste distanz = ", distX, "cm")
+            drive(distX)
 
             # rotate back in first orientation
             print("zweite 90 grad rotation")
@@ -101,10 +101,10 @@ def checkDetection(data):
                 rotate(-90)
         
         elif distX > -10 and distX < 10:
-            if yaw < 15 and yaw > -15:
+            if yaw < 20 and yaw > -20:
                 print("Entered Algo 2a - Tag genau vor dem Bot, ohne Rotation")
-                print("drive only distance = ", distZ, "cm")
-                drive(distZ)
+                print("drive only distance = ", distZ - 30, "cm")
+                drive(distZ - 30)
             else:
                 print("Entered Algo 2b - Tag genau vor dem Bot, MIT Rotation")
                 # rotate 90 degrees
@@ -167,45 +167,12 @@ def checkDetection(data):
             print("done algo 3")
         else:
         # data from next measurement
-            print("driving second distance = ", distZ - 20, "cm")
-            drive(distZ - 20)
+            print("driving second distance = ", distZ - 30, "cm")
+            drive(distZ - 30)
             print("ALL DONE")
             print("sleeping now")
             sleep(120)
     # input("press ENTER for next measurement")
-
-def ausrichten(tags):
-    distX = tags[0]['distance_x']
-    distZ = tags[0]['distance_z']
-    yaw = tags[0]['yaw']
-    deltaAngle = 90 - abs(yaw)
-
-    if deltaAngle > 80:
-        if distX < 0:
-            deltaAngle *= -1
-    elif yaw > 0:
-        deltaAngle *= -1
-    deltaAngle = int(deltaAngle)
-    sleep(2)
-    rotate(deltaAngle)
-    print("first rotation done, was ", deltaAngle)
-
-    distancefirst = int(distZ * math.cos(np.radians(abs(deltaAngle))) * 100) - 15
-    
-    drive(distancefirst)
-    print("first drive done, was ", distancefirst, "cm")
-
-    if deltaAngle < 0:
-        rotate(90)
-    else:
-        rotate(-90)
-    print("second rotation done")
-
-def anfahren(tags):
-    distZ = tags[0]['distance_z']
-    lastDistance = int(distZ * 100) - 10
-    drive(lastDistance)
-    print("last drive done, was ", lastDistance, "cm")
 
 def rotate(angle):
     # return
@@ -226,9 +193,9 @@ def rotate(angle):
     val = pack("B", second)
     ser.write(val)
 
-    # result = int.from_bytes(ser.read(), "big")
-    # while result != 2:
-    #     result = int.from_bytes(ser.read(), "big")
+    result = int.from_bytes(ser.read(), "big")
+    while result != 2:
+        result = int.from_bytes(ser.read(), "big")
     return
 
 def drive(distance):
@@ -250,9 +217,9 @@ def drive(distance):
     val = pack("B", second)
     ser.write(val)
 
-    # result = int.from_bytes(ser.read(), "big")
-    # while result != 1:
-    #     result = int.from_bytes(ser.read(), "big")
+    result = int.from_bytes(ser.read(), "big")
+    while result != 1:
+        result = int.from_bytes(ser.read(), "big")
     return
 
 def extractTagValues(detections):
