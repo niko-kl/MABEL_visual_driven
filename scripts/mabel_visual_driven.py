@@ -9,173 +9,23 @@ from geometry_msgs.msg import PoseWithCovarianceStamped
 from geometry_msgs.msg import PoseWithCovariance
 from geometry_msgs.msg import Point
 import serial
-from struct import pack
 from time import sleep
-import math
+from struct import pack
 import tf.transformations
 import numpy as np
+import math
+from approxeng.input.selectbinder import ControllerResource
 #endregion
 
-#region init
-print("Starting...")
-try:
-    ser = serial.Serial(port='/dev/ttyACM0', # ls /dev/tty* to find your port
-            baudrate = 9600,
-            parity = serial.PARITY_NONE,
-            stopbits = serial.STOPBITS_ONE,
-            bytesize = serial.EIGHTBITS,
-            timeout = 1)
-except IOError:
-    ser = serial.Serial(port='/dev/ttyACM1', # ls /dev/tty* to find your port
-            baudrate = 9600,
-            parity = serial.PARITY_NONE,
-            stopbits = serial.STOPBITS_ONE,
-            bytesize = serial.EIGHTBITS,
-            timeout = 1)
-print("Initialized serial communication")
+mode = ''
+gates = [   {'ids': [0, 1], 'found': 0, 'firstTagIndex': -1, 'secondTagIndex': -1},
+            {'ids': [2, 3], 'found': 0, 'firstTagIndex': -1, 'secondTagIndex': -1}]
 
 negative_byte = 0b1000000000000000
 position_value_byte = 0b0100000000000000
 angle_value_byte = 0b0010000000000000
 
-secondStep = False
-
-#endregion
-
-def checkDetection(data):
-    global secondStep
-    print("entered checkDetection")
-    detections = data.detections
-    if len(detections) < 1: #später, nur weiter wenn mehr als 2 (= 1 mögliches Tor)
-        #rotate(22)
-        return
-    tags = extractTagValues(detections)
-
-    # print("distance_x = ", tags[0]['distance_x'])
-    # print("yaw = ", tags[0]['yaw'], "\n")
-    # zum testen: nur den ersten tag benutzen
-    # if not secondStep:
-    #     ausrichten(tags)
-    # else:
-    #     anfahren(tags)
-    
-    distX = int(tags[0]['distance_x'] * 100)
-    distZ = int(tags[0]['distance_z'] * 100)
-    yaw = int(tags[0]['yaw'])
-
-    # # sleep(1)
-
-    # print("yaw = ", yaw, "\tdistX = ", distX, "\tdistZ = ", distZ)
-
-    # weg = math.sqrt((distZ ** 2) + (distX ** 2))
-    # # print())
-    # drive(int(weg))
-
-    # winkel = math.acos(distZ/weg)
-    # print("driving = ", int(weg), "\tdrehen = ", int(winkel))
-    # rotate(int(winkel)) 
-
-    # sleep(3)
-
-    if not secondStep:
-        if (distX > 10 and yaw < 0) or (distX < -10 and yaw > 0):
-            print("Entered Algo 1 - Schlechte Lage zum Tag")
-            # tag is not placed optimal
-            # rotate 90 degrees
-            if distX < 0:
-                print("erste -90 grad rotation")
-                rotate(-90)
-            elif distX > 0:
-                print("erste 90 grad rotation")
-                rotate(90)
-
-            # drive horizontal distance to tag
-            print("fahre erste distanz = ", distX, "cm")
-            drive(distX)
-
-            # rotate back in first orientation
-            print("zweite 90 grad rotation")
-            if distX < 0:
-                rotate(90)
-            elif distX > 0:
-                rotate(-90)
-        
-        elif distX > -10 and distX < 10:
-            if yaw < 20 and yaw > -20:
-                print("Entered Algo 2a - Tag genau vor dem Bot, ohne Rotation")
-                print("drive only distance = ", distZ - 30, "cm")
-                drive(distZ - 30)
-            else:
-                print("Entered Algo 2b - Tag genau vor dem Bot, MIT Rotation")
-                # rotate 90 degrees
-                if yaw < 0:
-                    print("erste 90 grad rotation")
-                    rotate(90)
-                elif yaw > 0:
-                    print("erste -90 grad rotation")
-                    rotate(-90)
-                
-                # drive first distance
-                print("2b input: ", "distZ = ", distZ, "\tyaw = ", abs(yaw))
-                sinValue = math.sin(np.radians(abs(yaw)))
-                cosValue = math.cos(np.radians(abs(yaw)))
-                firstDistance = distZ * (sinValue / cosValue)
-                firstDistance = int(abs(firstDistance))
-                print("fahre erste distanz = ", firstDistance, "cm")
-                drive(firstDistance)
-
-                # rotate back to be in front of tag
-                if yaw < 0:
-                    print("zweite rotation um ", -90 - yaw, " grad")
-                    rotate(-90 - yaw)
-                elif yaw > 0:
-                    print("zweite rotation um ", 90 + yaw, " grad")
-                    rotate(90 + yaw)
-
-                # data from next measurement
-                # drive(distZ)
-                secondStep = True
-                print("done algo 2b")
-
-        elif (distX < 0 and yaw < 0) or (distX > 0 and yaw > 0):
-            print("Entered Algo 3")
-            # tag is placed right in front of robot
-            # rotate 90 degrees
-            if distX > 0:
-                print("erste -90 grad rotation")
-                rotate(-90)
-            elif distX < 0:
-                print("erste 90 grad rotation")
-                rotate(90)
-            
-            # drive first distance
-            sinValue = math.sin(np.radians(abs(yaw)))
-            cosValue = math.cos(np.radians(abs(yaw)))
-            firstDistance = abs(distX) - distZ * (sinValue / cosValue)
-            firstDistance = int(abs(firstDistance))
-            print("fahre erste distanz = ", firstDistance, "cm")
-            drive(firstDistance)
-
-            # rotate back to be in front of tag
-            if distX > 0:
-                print("zweite rotation um ", 90 - abs(yaw), " grad")
-                rotate(90 - abs(yaw))
-            elif distX < 0:
-                print("zweite rotation um ", -90 + abs(yaw), " grad")
-                rotate(-90 + abs(yaw))
-            secondStep = True
-            print("done algo 3")
-        else:
-        # data from next measurement
-            print("driving second distance = ", distZ - 30, "cm")
-            drive(distZ - 30)
-            print("ALL DONE")
-            print("sleeping now")
-            sleep(120)
-    # input("press ENTER for next measurement")
-
-def rotate(angle):
-    # return
+def rotate(ser, angle):
     sendByte = 0b00000000
 
     if angle < 0:
@@ -198,8 +48,7 @@ def rotate(angle):
         result = int.from_bytes(ser.read(), "big")
     return
 
-def drive(distance):
-    # return
+def drive(ser, distance):
     sendByte = 0b00000000
 
     if distance < 0:
@@ -222,7 +71,7 @@ def drive(distance):
         result = int.from_bytes(ser.read(), "big")
     return
 
-def extractTagValues(detections):
+def getTagValues(detections):
     tags = []
     for x in range(len(detections)):
         quaternion = (
@@ -251,17 +100,146 @@ def extractTagValues(detections):
         })
     return tags
 
-def listener():
-    # print("Waiting 30 seconds before start")
-    # sleep(10)
-    # print("Arduino initialized")
-    # sleep(10)
-    # print("10 seconds left")
-    # sleep(10)
-    input("Press ENTER to start")
+def resetGates():
+    for x in range(len(gates)):
+        gates[x]['found'] = 0
+
+def getGateValues(tags):
+    resetGates()
+    resultValues = []
+    for x in range(len(tags)):
+        for y in range(len(gates)):
+            if tags[x]['id'] in gates[y]['ids']:
+                if gates[y]['firstTagIndex'] == -1:
+                    gates[y]['firstTagIndex'] = tags[x]['id']
+                gates[y]['secondTagIndex'] = tags[x]['id']
+                gates[y]['found'] += 1
+    
+    gateIndex = -1
+    for x in range(len(gates)):
+        if gates[x]['found'] == 2:
+            gateIndex = x
+            break
+    
+    if gateIndex >= 0:
+        finalTags = []
+        finalTags.append(tags[gates[gateIndex]['firstTagIndex']])
+        finalTags.append(tags[gates[gateIndex]['secondTagIndex']])
+
+        distY = int(((finalTags[0]['distance_x'] + finalTags[1]['distance_x']) / 2) * 100)
+        distX = int(((finalTags[0]['distance_z'] + finalTags[1]['distance_z']) / 2) * 100)
+        yaw = int((finalTags[0]['yaw'] + finalTags[1]['yaw']) / 2)
+
+        resultValues.append({'distY': distY, 'distX': distX, 'yaw': yaw})
+
+    return resultValues
+
+def evaluateDetection(data):
+    if getControlMode() == 'circle':
+        return
+    tags = getTagValues(data.detections)
+    gateValues = getGateValues(tags)
+    if gateValues:
+        print("Found gate:")
+        print(gateValues)
+    else:
+        print("No gates were found")
+
+    choice = input("Enter mode: (d) drive 30 cm or (r) rotate 90 degrees: ")
+    if choice == "d":
+        drive(30)
+    elif choice == "r":
+        rotate(90)
+    else:
+        print("sleeping 3 seconds")
+        sleep(3)
+    # if len(tags) < 2:
+    #     rotate(30)
+    #     return
+
+def getControlMode():
+    global joystick
+    joystick.check_presses()
+    presses = joystick.presses
+
+    if 'square' in presses:
+        return 'square'
+    elif 'circle' in presses:
+        return 'circle'
+
+    return ''
+
+def main():
+    global ser
+    print("Starting...")
+    try:
+        ser = serial.Serial(port='/dev/ttyACM0', # ls /dev/tty* to find your port
+                baudrate = 9600,
+                parity = serial.PARITY_NONE,
+                stopbits = serial.STOPBITS_ONE,
+                bytesize = serial.EIGHTBITS,
+                timeout = 1)
+    except IOError:
+        ser = serial.Serial(port='/dev/ttyACM1', # ls /dev/tty* to find your port
+                baudrate = 9600,
+                parity = serial.PARITY_NONE,
+                stopbits = serial.STOPBITS_ONE,
+                bytesize = serial.EIGHTBITS,
+                timeout = 1)
+    print("Initialized serial communication")
+
     rospy.init_node('mabel_visual_driven', anonymous=True)
-    rospy.Subscriber("/tag_detections", AprilTagDetectionArray, checkDetection, queue_size=1)
-    rospy.spin()
+
+    global sub
+    global mode
+    
+    while True:
+        try:
+            global joystick
+            with ControllerResource() as joystick:
+                print('Found a joystick and connected')
+                while joystick.connected:
+                    if not mode:
+                        mode = getControlMode()
+                    while mode == 'circle':
+                        sendByte = 0b00000000
+                        left_x = joystick['lx']
+                        left_y = joystick['ly']
+                        if not(left_x == 0 and left_y == 0):
+                            if left_x < 0:
+                                print("Moving left")
+                                sendByte |= 0b00000001
+                            if left_x > 0:
+                                print("Moving right")
+                                sendByte |= 0b00000010
+                            if left_y > 0:
+                                print("Moving forward")
+                                sendByte |= 0b00000100
+                            if left_y < 0:
+                                print("Moving backwards")
+                                sendByte |= 0b00001000
+                            val = pack("B", sendByte)
+                            # ser.write(val)
+                        sleep(0.05)
+
+                        if getControlMode() == 'square':
+                            mode = 'square'
+
+                    if mode == 'square':
+                        sub = rospy.Subscriber("/tag_detections", AprilTagDetectionArray, evaluateDetection, queue_size=1)
+
+                    while mode == 'square' and not rospy.core.is_shutdown():
+                        rospy.rostime.wallsleep(0.5)
+                        if getControlMode() == 'circle':
+                            sub.unregister()
+                            mode = 'circle'
+                        
+            # Joystick disconnected...
+            print('Connection to joystick lost')
+        except IOError:
+            # No joystick found, wait for a bit before trying again
+            print('Unable to find any joysticks')
+            sleep(1.0)
 
 if __name__ == '__main__':
-    listener()  
+    main()
