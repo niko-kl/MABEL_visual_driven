@@ -25,7 +25,8 @@ negative_byte = 0b1000000000000000
 position_value_byte = 0b0100000000000000
 angle_value_byte = 0b0010000000000000
 
-def rotate(ser, angle):
+def rotate(angle):
+    global ser
     sendByte = 0b00000000
 
     if angle < 0:
@@ -48,7 +49,8 @@ def rotate(ser, angle):
         result = int.from_bytes(ser.read(), "big")
     return
 
-def drive(ser, distance):
+def drive(distance):
+    global ser
     sendByte = 0b00000000
 
     if distance < 0:
