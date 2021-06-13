@@ -144,20 +144,30 @@ def evaluateDetection(data):
     if gateValues:
         print("Found gate:")
         print(gateValues)
+
+        # horizontal distance
+        y = gateValues[0]['distY']
+
+        # vertical distance
+        x = gateValues[0]['distX']
+
+        # angle
+        angle = gateValues[0]['yaw']
+
+        startDrive(y, x, angle)
     else:
         print("No gates were found")
 
-    choice = input("Enter mode: (d) drive 30 cm or (r) rotate 90 degrees: ")
-    if choice == "d":
-        drive(30)
-    elif choice == "r":
-        rotate(90)
-    else:
-        print("sleeping 3 seconds")
-        sleep(3)
+    
     # if len(tags) < 2:
     #     rotate(30)
     #     return
+
+def startDrive(y, x, angle):
+    if y > -10 and y < 10: # y => [-10;10] 
+        drive(x + 30)
+
+
 
 def getControlMode():
     global joystick
