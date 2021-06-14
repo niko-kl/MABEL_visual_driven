@@ -15,6 +15,8 @@ import tf.transformations
 import numpy as np
 import math
 from approxeng.input.selectbinder import ControllerResource
+import signal
+import sys
 #endregion
 
 mode = ''
@@ -24,6 +26,10 @@ gates = [   {'ids': [0, 1], 'found': 0, 'firstTagIndex': -1, 'secondTagIndex': -
 negative_byte = 0b1000000000000000
 position_value_byte = 0b0100000000000000
 angle_value_byte = 0b0010000000000000
+
+def signal_handler(sig, frame):
+    print("You pressed Ctrl+C!")
+    sys.exit(0)
 
 def rotate(angle):
     global ser
@@ -254,4 +260,5 @@ def main():
             sleep(1.0)
 
 if __name__ == '__main__':
+    signal.signal(signal.SIGINT, signal_handler)
     main()
