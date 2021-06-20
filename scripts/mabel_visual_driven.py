@@ -111,16 +111,19 @@ def getTagValues(detections):
 def resetGates():
     for x in range(len(gates)):
         gates[x]['found'] = 0
+        gates[x]['firstTagIndex'] = -1
+        gates[x]['secondTagIndex'] = -1
 
 def getGateValues(tags):
     resetGates()
+    # print("tags: ", tags)
     resultValues = []
     for x in range(len(tags)):
         for y in range(len(gates)):
             if tags[x]['id'] in gates[y]['ids']:
                 if gates[y]['firstTagIndex'] == -1:
-                    gates[y]['firstTagIndex'] = tags[x]['id']
-                gates[y]['secondTagIndex'] = tags[x]['id']
+                    gates[y]['firstTagIndex'] = x
+                gates[y]['secondTagIndex'] = x
                 gates[y]['found'] += 1
     
     gateIndex = -1
@@ -128,17 +131,25 @@ def getGateValues(tags):
         if gates[x]['found'] == 2:
             gateIndex = x
             break
+
+    # print("gateIndex: ", gateIndex)
+    # print("gates: ", gates)
     
     if gateIndex >= 0:
-        finalTags = []
-        finalTags.append(tags[gates[gateIndex]['firstTagIndex']])
-        finalTags.append(tags[gates[gateIndex]['secondTagIndex']])
+        # print("#1 stop")
+        # print(gates[gateIndex]['firstTagIndex'])
+        # print(gates[gateIndex]['secondTagIndex'])
+        if gates[gateIndex]['firstTagIndex'] != -1 and gates[gateIndex]['secondTagIndex'] != -1:
+            # print("#2 stop")
+            finalTags = []
+            finalTags.append(tags[gates[gateIndex]['firstTagIndex']])
+            finalTags.append(tags[gates[gateIndex]['secondTagIndex']])
 
-        distY = int(((finalTags[0]['distance_x'] + finalTags[1]['distance_x']) / 2) * 100)
-        distX = int(((finalTags[0]['distance_z'] + finalTags[1]['distance_z']) / 2) * 100)
-        yaw = int((finalTags[0]['yaw'] + finalTags[1]['yaw']) / 2)
+            distY = int(((finalTags[0]['distance_x'] + finalTags[1]['distance_x']) / 2) * 100)
+            distX = int(((finalTags[0]['distance_z'] + finalTags[1]['distance_z']) / 2) * 100)
+            yaw = int((finalTags[0]['yaw'] + finalTags[1]['yaw']) / 2)
 
-        resultValues.append({'distY': distY, 'distX': distX, 'yaw': yaw})
+            resultValues.append({'distY': distY, 'distX': distX, 'yaw': yaw})
 
     return resultValues
 
@@ -146,10 +157,11 @@ def evaluateDetection(data):
     if getControlMode() == 'circle':
         return
     tags = getTagValues(data.detections)
+    # print(tags)
     gateValues = getGateValues(tags)
     if gateValues:
-        print("Found gate:")
-        print(gateValues)
+        # print("Found gate:")
+        # print(gateValues)
 
         # horizontal distance
         y = gateValues[0]['distY']
@@ -160,27 +172,83 @@ def evaluateDetection(data):
         # angle
         angle = gateValues[0]['yaw']
 
-        startDrive(y, x, angle)
+        moveThroughGate(y, x, angle)
+
+        # startDrive(y, x, angle)
     else:
         print("No gates were found")
-
     
     # if len(tags) < 2:
     #     rotate(30)
     #     return
 
+def moveThroughGate(y, x, angle):
+    sinValue = math.sin(np.radians(abs(angle)))
+    cosValue = math.cos(np.radians(abs(angle)))
+    firstDistance = x * (sinValue / cosValue)
+
+    if angle > 0:
+        if y > 0:
+            # case 1
+            firstDistance = abs(y) - firstDistance
+            firstDistance = int(firstDistance)
+        else:
+            # case 2
+            firstDistance = y - firstDistance
+            firstDistance = int(firstDistance)
+    else:
+        if y > 0:
+            # case 3
+            firstDistance = firstDistance
+            firstDistance = abs(int(firstDistance))
+        else:
+            # case 4
+            firstDistance = abs(y) - firstDistance
+            firstDistance = abs(int(firstDistance))
+
+    # print("first distance: ", firstDistance)
+    # print("y: ", y)
+    # print("x: ", x)
+    # print("angle: ", angle)
+    # sleep(3)
+
+    if firstDistance > 0:
+        print("#1 rotation 90")
+        rotate(90)
+    else:
+        print("#1 rotation -90")
+        rotate(-90)
+
+    print("#1 distance driving: ", firstDistance, "cm")
+    drive(firstDistance)
+
+    if angle > 0:
+        rotationAngle = 90 + angle
+        print("#2 rotation 90 + ", angle, " = ", rotationAngle)
+        rotate(rotationAngle)
+    else:
+        rotationAngle = -90 - angle
+        print("#2 rotation -90 - ", angle, " = ", rotationAngle)
+        rotate(rotationAngle)
+
+    sleep(3)
+    print("#done")
+
 def startDrive(y, x, angle):
-    if y > -10 and y < 10: # y => [-10;10] 
+    # y - horizontal
+    # x - vertical
+
+    if y > -20 and y < 20: # y => [-10;10]
+        print("driving distance: ", x, " + 30 = ", x + 30)
         drive(x + 30)
-
-
-
+        
 def getControlMode():
     global joystick
     joystick.check_presses()
     presses = joystick.presses
 
     if 'square' in presses:
+        # resetGateValues()
         return 'square'
     elif 'circle' in presses:
         return 'circle'
@@ -237,7 +305,7 @@ def main():
                                 print("Moving backwards")
                                 sendByte |= 0b00001000
                             val = pack("B", sendByte)
-                            # ser.write(val)
+                            ser.write(val)
                         sleep(0.05)
 
                         if getControlMode() == 'square':
