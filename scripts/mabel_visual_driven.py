@@ -19,6 +19,7 @@ import signal
 import sys
 #endregion
 
+secondStep = False
 mode = ''
 gates = [   {'ids': [0, 1], 'found': 0, 'firstTagIndex': -1, 'secondTagIndex': -1},
             {'ids': [2, 3], 'found': 0, 'firstTagIndex': -1, 'secondTagIndex': -1}]
@@ -77,6 +78,7 @@ def drive(distance):
     result = int.from_bytes(ser.read(), "big")
     while result != 1:
         result = int.from_bytes(ser.read(), "big")
+        print("found result = ", result)
     return
 
 def getTagValues(detections):
@@ -173,16 +175,12 @@ def evaluateDetection(data):
         angle = gateValues[0]['yaw']
 
         moveThroughGate(y, x, angle)
-
-        # startDrive(y, x, angle)
     else:
         print("No gates were found")
-    
-    # if len(tags) < 2:
-    #     rotate(30)
-    #     return
+        rotate(30)
 
 def moveThroughGate(y, x, angle):
+    global secondStep
     sinValue = math.sin(np.radians(abs(angle)))
     cosValue = math.cos(np.radians(abs(angle)))
     firstDistance = x * (sinValue / cosValue)
@@ -206,41 +204,41 @@ def moveThroughGate(y, x, angle):
             firstDistance = abs(y) - firstDistance
             firstDistance = abs(int(firstDistance))
 
-    # print("first distance: ", firstDistance)
-    # print("y: ", y)
-    # print("x: ", x)
-    # print("angle: ", angle)
+    print("first distance: ", firstDistance)
+    print("y: ", y)
+    print("x: ", x)
+    print("angle: ", angle)
     # sleep(3)
 
-    if firstDistance > 0:
-        print("#1 rotation 90")
-        rotate(90)
+    if not secondStep:
+
+        if firstDistance > 0:
+            print("#1 rotation 90")
+            rotate(90)
+        else:
+            print("#1 rotation -90")
+            rotate(-90)
+
+        print("#1 distance driving: ", firstDistance, "cm")
+        drive(firstDistance)
+
+        if angle > 0:
+            rotationAngle = 90 + angle
+            print("#2 rotation 90 + ", angle, " = ", rotationAngle)
+            rotate(rotationAngle)
+        else:
+            rotationAngle = -90 + angle
+            print("#2 rotation -90 - ", angle, " = ", rotationAngle)
+            rotate(rotationAngle)
+
+        sleep(3)
+        print("#done")
+        secondStep = True
+
     else:
-        print("#1 rotation -90")
-        rotate(-90)
-
-    print("#1 distance driving: ", firstDistance, "cm")
-    drive(firstDistance)
-
-    if angle > 0:
-        rotationAngle = 90 + angle
-        print("#2 rotation 90 + ", angle, " = ", rotationAngle)
-        rotate(rotationAngle)
-    else:
-        rotationAngle = -90 - angle
-        print("#2 rotation -90 - ", angle, " = ", rotationAngle)
-        rotate(rotationAngle)
-
-    sleep(3)
-    print("#done")
-
-def startDrive(y, x, angle):
-    # y - horizontal
-    # x - vertical
-
-    if y > -20 and y < 20: # y => [-10;10]
         print("driving distance: ", x, " + 30 = ", x + 30)
         drive(x + 30)
+        secondStep = False
         
 def getControlMode():
     global joystick
